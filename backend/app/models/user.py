@@ -73,8 +73,10 @@ class User(Base):
         default="front_desk_agent"
     )
 
-    property_id: Mapped[int] = mapped_column(
-        ForeignKey("properties.id")
+    # Nullable so an owner can sign in before creating their first hotel.
+    property_id: Mapped[int | None] = mapped_column(
+        ForeignKey("properties.id"),
+        nullable=True
     )
 
     is_active: Mapped[bool] = mapped_column(

@@ -7,6 +7,15 @@ from app.models.user import Property, User
 from app.core.security import hash_password
 
 
+# One dev login per role: username and password are both the role name.
+# The owner starts without a hotel so they land on "Create Hotel".
+ROLE_USERS = [
+    {"role": "owner", "has_property": False},
+    {"role": "front_office_manager", "has_property": True},
+    {"role": "front_desk_agent", "has_property": True},
+]
+
+
 async def seed_data():
     async with SessionLocal() as db:
 
@@ -60,6 +69,33 @@ async def seed_data():
             print("Front Office user created.")
         else:
             print("Front Office user already exists.")
+
+        # Create one user per role
+        for spec in ROLE_USERS:
+            role = spec["role"]
+            result = await db.execute(
+                select(User).where(User.username == role)
+            )
+
+            if result.scalar_one_or_none() is not None:
+                print(f"{role} user already exists.")
+                continue
+
+            db.add(
+                User(
+                    username=role,
+                    email=f"{role}@stayhub.com",
+                    mobile=None,
+                    password_hash=hash_password(role),
+                    role=role,
+                    property_id=property_obj.id if spec["has_property"] else None,
+                    is_active=True,
+                    failed_login_attempts=0,
+                    is_locked=False,
+                )
+            )
+
+            print(f"{role} user created.")
 
         await db.commit()
 

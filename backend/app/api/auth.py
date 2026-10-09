@@ -132,16 +132,19 @@ async def login(
             detail=f"Invalid password. {remaining} attempts remaining.",
         )
 
-    # Validate property
-    property_result = await db.execute(
-        select(Property).where(
-            Property.id == user.property_id
+    # Validate property (an owner may sign in before creating a hotel)
+    property_obj = None
+    if user.property_id is not None:
+        property_result = await db.execute(
+            select(Property).where(
+                Property.id == user.property_id
+            )
         )
-    )
+        property_obj = property_result.scalar_one_or_none()
 
-    property_obj = property_result.scalar_one_or_none()
+    owner_without_hotel = user.role == "owner" and user.property_id is None
 
-    if property_obj is None or not property_obj.is_active:
+    if not owner_without_hotel and (property_obj is None or not property_obj.is_active):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Property is unavailable",
@@ -150,7 +153,8 @@ async def login(
     # If property code was supplied, validate it
     if data.property_code:
         if (
-            property_obj.property_code.lower()
+            property_obj is None
+            or property_obj.property_code.lower()
             != data.property_code.strip().lower()
         ):
             db.add(

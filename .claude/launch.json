@@ -1,0 +1,23 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "stayhub-api",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "cd backend && python -m uvicorn app.main:app --reload --port 8000"
+      ],
+      "port": 8000
+    },
+    {
+      "name": "stayhub-web-preview",
+      "runtimeExecutable": "cmd",
+      "runtimeArgs": [
+        "/c",
+        "cd frontend && npx vite --port 5187 --strictPort"
+      ],
+      "port": 5187
+    }
+  ]
+}

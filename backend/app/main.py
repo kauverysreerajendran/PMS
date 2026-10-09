@@ -10,6 +10,7 @@ from app.api.checkouts import router as checkouts_router
 from app.api.reservations import router as reservations_router
 from app.api.guests import router as guests_router
 from app.api.billing import router as billing_router
+from app.api.properties import router as properties_router
 from app.db.database import Base, engine
 
 
@@ -30,6 +31,9 @@ async def lifespan(app: FastAPI):
         )
         await conn.execute(
             text("ALTER TABLE checkins ADD COLUMN IF NOT EXISTS verification_status VARCHAR(30) NOT NULL DEFAULT 'pending'")
+        )
+        await conn.execute(
+            text("ALTER TABLE users ALTER COLUMN property_id DROP NOT NULL")
         )
 
     yield
@@ -61,6 +65,7 @@ app.include_router(checkouts_router)
 app.include_router(reservations_router)
 app.include_router(guests_router)
 app.include_router(billing_router)
+app.include_router(properties_router)
 
 
 @app.get("/")

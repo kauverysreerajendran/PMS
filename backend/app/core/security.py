@@ -32,7 +32,7 @@ def verify_password(
 def create_access_token(
     user_id: int,
     role: str,
-    property_id: int,
+    property_id: int | None,
 ) -> str:
 
     expires = datetime.now(timezone.utc) + timedelta(

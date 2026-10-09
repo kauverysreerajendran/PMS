@@ -42,3 +42,6 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# Local dev notes (credentials) - never commit
+*.local.md

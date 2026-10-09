@@ -13,7 +13,7 @@ class UserResponse(BaseModel):
     email: str
     mobile: str | None = None
     role: str
-    property_id: int
+    property_id: int | None = None
 
 
 class LoginResponse(BaseModel):
