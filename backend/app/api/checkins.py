@@ -1,6 +1,8 @@
 from datetime import date
+from pathlib import Path
+from secrets import token_hex
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -19,6 +21,10 @@ from app.schemas.checkin import (
 router = APIRouter(prefix="/check-ins", tags=["Check-In"])
 CHECK_IN_ELIGIBLE_STATUSES = {"confirmed", "tentative", "waiting"}
 VERIFICATION_STATUSES = {"pending", "verified", "not_required"}
+
+
+def folio_number(property_id: int) -> str:
+    return f"FOL-{property_id}-{date.today():%Y%m%d}-{token_hex(3).upper()}"
 
 
 async def get_checkin_or_404(
@@ -90,6 +96,10 @@ async def create_checkin(
             status_code=409,
             detail="Assign a room before checking in the guest",
         )
+    if not reservation.guest.identity_document_path or not reservation.guest.identity_type or not reservation.guest.identity_number:
+        raise HTTPException(status_code=409, detail="Upload the guest identity document and record its type and number before check-in")
+    if data.verification_status != "verified":
+        raise HTTPException(status_code=409, detail="Verify the uploaded guest identity document before check-in")
     duplicate = await db.scalar(
         select(CheckIn.id).where(CheckIn.reservation_id == reservation.id)
     )
@@ -103,6 +113,7 @@ async def create_checkin(
         reservation_id=reservation.id,
         guest_id=reservation.guest_id,
         room_number=reservation.room_number,
+        folio_number=folio_number(current_user.property_id),
         checked_in_by_user_id=current_user.id,
         **data.model_dump(exclude={"reservation_id"}),
     )
@@ -110,6 +121,38 @@ async def create_checkin(
     db.add(checkin)
     await db.commit()
     return await get_checkin_or_404(checkin.id, current_user.property_id, db)
+
+
+@router.post("/{reservation_id}/identity-document")
+async def upload_identity_document(
+    reservation_id: int,
+    document_type: str = Query(min_length=2, max_length=50),
+    document_number: str = Query(min_length=2, max_length=100),
+    nationality: str | None = Query(default=None, max_length=100),
+    document: UploadFile = File(...),
+    current_user: User = Depends(get_front_office_manager),
+    db: AsyncSession = Depends(get_db),
+):
+    reservation = await db.scalar(select(Reservation).options(selectinload(Reservation.guest)).where(Reservation.id == reservation_id, Reservation.property_id == current_user.property_id))
+    if reservation is None:
+        raise HTTPException(status_code=404, detail="Reservation not found")
+    suffix = Path(document.filename or "document").suffix.lower()
+    if suffix not in {".pdf", ".jpg", ".jpeg", ".png"}:
+        raise HTTPException(status_code=422, detail="Upload a PDF, JPG, or PNG identity document")
+    folder = Path(__file__).resolve().parents[2] / "uploads" / "identity"
+    folder.mkdir(parents=True, exist_ok=True)
+    filename = f"guest-{reservation.guest_id}-{token_hex(8)}{suffix}"
+    destination = folder / filename
+    contents = await document.read()
+    if len(contents) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=422, detail="Identity document must be 5 MB or smaller")
+    destination.write_bytes(contents)
+    reservation.guest.identity_document_path = str(destination)
+    reservation.guest.identity_type = document_type.strip()
+    reservation.guest.identity_number = document_number.strip()
+    reservation.guest.nationality = nationality.strip() if nationality else None
+    await db.commit()
+    return {"message": "Identity document uploaded", "document_path": str(destination)}
 
 
 @router.get("", response_model=list[CheckInResponse])

@@ -132,6 +132,19 @@ async def login(
             detail=f"Invalid password. {remaining} attempts remaining.",
         )
 
+    # Owner with several hotels: a property code at login opens that hotel.
+    if user.role == "owner" and data.property_code:
+        owned_result = await db.execute(
+            select(Property).where(
+                Property.owner_id == user.id,
+                Property.is_active.is_(True),
+                Property.property_code.ilike(data.property_code.strip()),
+            )
+        )
+        owned = owned_result.scalar_one_or_none()
+        if owned is not None:
+            user.property_id = owned.id
+
     # Validate property (an owner may sign in before creating a hotel)
     property_obj = None
     if user.property_id is not None:

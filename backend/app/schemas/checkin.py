@@ -23,6 +23,7 @@ class PendingCheckInResponse(BaseModel):
     room_category: str | None
     check_in_date: date
     check_out_date: date
+    adults: int
     status: str
 
 
@@ -37,6 +38,7 @@ class CheckInResponse(BaseModel):
     identity_document_type: str | None
     identity_document_number: str | None
     verification_status: str
+    folio_number: str | None
     notes: str | None
     checked_in_at: datetime
 

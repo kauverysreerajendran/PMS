@@ -45,3 +45,18 @@ Thumbs.db
 
 # Local dev notes (credentials) - never commit
 *.local.md
+
+# Local safety copies made while editing
+_backup_*/
+
+# Guest ID documents uploaded at check-in (personal data - never commit)
+backend/uploads/
+
+# Build output
+frontend/dist/
+*.tsbuildinfo
+# Large source photos not used by the app (kept locally only)
+frontend/public/1.jpg
+frontend/public/2.jpg
+frontend/public/3.jpg
+frontend/public/4.jpg

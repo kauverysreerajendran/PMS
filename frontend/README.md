@@ -1,4 +1,4 @@
-# StayHub Login Frontend
+# Hotel Management Frontend
 
 Frontend-only recreation of the supplied hotel-management login reference.
 

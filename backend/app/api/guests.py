@@ -31,7 +31,8 @@ async def get_guest_profile(guest_id: int, current_user: User = Depends(get_fron
 @router.patch("/{guest_id}")
 async def update_guest(guest_id: int, data: GuestCreate, current_user: User = Depends(get_front_office_manager), db: AsyncSession = Depends(get_db)):
     guest = await get_guest_or_404(guest_id, current_user.property_id, db)
-    for field, value in data.model_dump().items():
+    # Only overwrite fields that were sent (keeps e.g. the uploaded ID document path).
+    for field, value in data.model_dump(exclude_unset=True).items():
         setattr(guest, field, value)
     await db.commit()
     await db.refresh(guest)

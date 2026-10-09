@@ -6,6 +6,7 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    Text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -29,6 +30,20 @@ class Property(Base):
 
     name: Mapped[str] = mapped_column(
         String(150)
+    )
+
+    # Owner-uploaded logo stored as a data URL; null shows the placeholder.
+    logo_url: Mapped[str | None] = mapped_column(
+        Text,
+        nullable=True
+    )
+
+    # The owner who registered this hotel. One owner can own several hotels.
+    owner_id: Mapped[int | None] = mapped_column(
+        # use_alter: users -> properties -> users is a cycle, so add this FK after both tables exist.
+        ForeignKey("users.id", use_alter=True, name="fk_properties_owner_id"),
+        nullable=True,
+        index=True
     )
 
     is_active: Mapped[bool] = mapped_column(
@@ -73,7 +88,9 @@ class User(Base):
         default="front_desk_agent"
     )
 
-    # Nullable so an owner can sign in before creating their first hotel.
+    # Staff: the hotel they work at. Owner: the hotel they are currently viewing
+    # (switchable among the hotels they own). Nullable so an owner can sign in
+    # before creating their first hotel.
     property_id: Mapped[int | None] = mapped_column(
         ForeignKey("properties.id"),
         nullable=True
@@ -99,7 +116,7 @@ class User(Base):
         default=datetime.utcnow
     )
 
-    property = relationship("Property")
+    property = relationship("Property", foreign_keys=[property_id])
 
 
 class UserSession(Base):
@@ -192,4 +209,4 @@ class PasswordReset(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
-    )
+    )

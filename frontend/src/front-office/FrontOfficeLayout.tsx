@@ -1,14 +1,15 @@
-import { useEffect, useState, type CSSProperties } from "react";
-import { NavLink, Outlet, useNavigate } from "react-router-dom";
-import { House, CalendarDays, LogIn, LogOut, BedDouble, Users, Sparkles, UserCog, Bell, Search, ChevronDown, ChevronRight, CreditCard, Headphones, PanelLeftClose, PanelLeftOpen, BriefcaseBusiness, ChartNoAxesColumn, MessageSquareText, Settings, type LucideIcon } from "lucide-react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { Navigate, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { House, CalendarDays, LogIn, LogOut, BedDouble, Users, Sparkles, UserCog, Bell, Search, ChevronDown, ChevronRight, CreditCard, Headphones, PanelLeftClose, PanelLeftOpen, BriefcaseBusiness, ChartNoAxesColumn, MessageSquareText, Settings, Building2, Check, Plus, ImagePlus, ClipboardList, type LucideIcon } from "lucide-react";
 import { signOut, useSession } from "../lib/auth";
-import { frontOfficePages, isFrontOfficeManager } from "./access";
+import { listMyHotels, readLogoFile, switchHotel, updateHotelLogo, useHotelProfile, type OwnedHotel } from "../lib/property";
+import { canUseFrontOffice, frontOfficePages, isOwner } from "./access";
 import "./frontOffice.css";
 import "./shell.css";
 
-const icons = [House, CalendarDays, LogIn, LogOut, CreditCard, BedDouble, Users, Sparkles, UserCog];
+const icons: Record<string, LucideIcon> = { "": House, calendar: CalendarDays, reservations: ClipboardList, "check-in": LogIn, "check-out": LogOut, billing: CreditCard, "room-assignment": BedDouble, guests: Users, "room-status": Sparkles, staff: UserCog };
 type NavItem = { title: string; icon: LucideIcon; to?: string; dot?: boolean };
-const frontOfficeNav: NavItem[] = frontOfficePages.map((page, index) => ({ title: page.title, icon: icons[index], to: "/dashboard" + (page.slug ? "/" + page.slug : "") }));
+const frontOfficeNav: NavItem[] = frontOfficePages.map(page => ({ title: page.title, icon: icons[page.slug] || House, to: "/dashboard" + (page.slug ? "/" + page.slug : "") }));
 // Modules for other roles are not built yet, so only Dashboard routes anywhere.
 const hotelNav: NavItem[] = [
   { title: "Dashboard", icon: House, to: "/dashboard" },
@@ -27,9 +28,21 @@ const roleLabel = (role: string) => roleLabels[role] || role.split("_").map(word
 
 // The design is drawn at 1672x940. On smaller desktop screens, scale the UI down so the
 // whole dashboard keeps those proportions instead of looking zoomed in.
-const DESIGN_WIDTH = 1672, DESIGN_HEIGHT = 940, MIN_SCALE = 0.78;
+// Compact desktop fit: scale by width only (height made it far too small on short laptop screens).
+const COMPACT_WIDTH = 1720, MIN_SCALE = 0.84;
+// Today's date for the header; re-checked every minute so it rolls over at midnight.
+const formatToday = () => new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }).format(new Date());
+function useToday() {
+  const [today, setToday] = useState(formatToday);
+  useEffect(() => {
+    const timer = window.setInterval(() => setToday(formatToday()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
+  return today;
+}
+
 function useUiScale() {
-  const compute = () => window.innerWidth <= 1250 ? 1 : Math.max(MIN_SCALE, Math.min(1, window.innerWidth / DESIGN_WIDTH, window.innerHeight / DESIGN_HEIGHT));
+  const compute = () => window.innerWidth <= 1100 ? 1 : Math.max(MIN_SCALE, Math.min(1, window.innerWidth / COMPACT_WIDTH));
   const [scale, setScale] = useState(compute);
   useEffect(() => {
     const update = () => setScale(compute());
@@ -48,17 +61,67 @@ export function StayHubMark({ size = 46 }: { size?: number }) {
   </svg>;
 }
 
+// Shows the hotel being viewed. Owner: swap hotels / add a hotel. Owner and front office manager: change the logo.
+function HotelSwitcher({ canManage }: { canManage: boolean }) {
+  const user = useSession();
+  const navigate = useNavigate();
+  const current = useHotelProfile();
+  const [open, setOpen] = useState(false);
+  const [hotels, setHotels] = useState<OwnedHotel[] | null>(null);
+  const [busyId, setBusyId] = useState<number | null>(null);
+  const [error, setError] = useState("");
+  const logoInput = useRef<HTMLInputElement>(null);
+  const uploadLogo = async (file?: File) => {
+    if (!file) return;
+    setError("");
+    try { await updateHotelLogo(await readLogoFile(file)); setHotels(await listMyHotels()); }
+    catch (err) { setError(err instanceof Error ? err.message : "Unable to upload the logo."); }
+    finally { if (logoInput.current) logoInput.current.value = ""; }
+  };
+  useEffect(() => { listMyHotels().then(setHotels).catch(() => setHotels([])); }, [user?.property_id]);
+  const choose = async (hotel: OwnedHotel) => {
+    if (hotel.active || !user) { setOpen(false); return; }
+    setBusyId(hotel.id); setError("");
+    try { await switchHotel(user, hotel.id); }
+    catch (err) { setError(err instanceof Error ? err.message : "Unable to switch hotel."); setBusyId(null); }
+  };
+  const count = hotels?.length ?? 0;
+  return <div className="fo-popover-wrap" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setOpen(false); }} onKeyDown={event => { if (event.key === "Escape") setOpen(false); }}>
+    <button type="button" className="sh-hotel-switch" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen(!open)} title="Switch hotel">
+      <Building2 size={18}/>
+      <span><strong>{current?.name || "Select hotel"}</strong><small>{count > 1 ? `${count} hotels` : current?.property_code || ""}</small></span>
+      <ChevronDown size={16}/>
+    </button>
+    {open && <div className="fo-popover fo-hotel-menu" role="menu">
+      <p className="fo-hotel-menu-label">{canManage ? "Your hotels" : "Your hotel"}</p>
+      {hotels == null && <p className="fo-hotel-menu-note">Loading…</p>}
+      {hotels?.map(hotel => <button type="button" role="menuitemradio" aria-checked={hotel.active} key={hotel.id} className={"fo-hotel-option" + (hotel.active ? " is-active" : "")} disabled={busyId != null} onClick={() => void choose(hotel)}>
+        {hotel.logo_url ? <img src={hotel.logo_url} alt=""/> : <span className="fo-hotel-initial">{hotel.name.slice(0, 1).toUpperCase()}</span>}
+        <span className="fo-hotel-text"><strong>{hotel.name}</strong><small>{hotel.property_code}</small></span>
+        {hotel.active ? <Check size={16}/> : busyId === hotel.id ? <small>Opening…</small> : null}
+      </button>)}
+      {error && <p className="fo-hotel-menu-error" role="alert">{error}</p>}
+      <hr className="fo-profile-sep"/>
+      <button type="button" role="menuitem" className="fo-hotel-add" onClick={() => logoInput.current?.click()}><ImagePlus size={16}/>{current?.logo_url ? "Change hotel logo" : "Upload hotel logo"}</button>
+      {canManage && <button type="button" role="menuitem" className="fo-hotel-add" onClick={() => navigate("/hotels/new")}><Plus size={16}/>Add another hotel</button>}
+      <input ref={logoInput} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif" hidden onChange={event => void uploadLogo(event.target.files?.[0])}/>
+    </div>}
+  </div>;
+}
+
 export default function FrontOfficeLayout() {
-  const user = useSession()!;
+  const user = useSession();
   const navigate = useNavigate();
   const [profileOpen, setProfileOpen] = useState(false);
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const uiScale = useUiScale();
+  const activeDate = useToday();
+  // The session can be cleared while this screen is open (expired login, sign-out in another tab).
+  if (!user) return <Navigate to="/login" replace/>;
   const name = user.name || user.username;
-  const nav = isFrontOfficeManager(user.role) ? frontOfficeNav : hotelNav;
+  const nav = canUseFrontOffice(user.role) ? frontOfficeNav : hotelNav;
   const role = roleLabel(user.role);
-  const activeDate = new Intl.DateTimeFormat("en-GB", { day: "2-digit", month: "short", year: "numeric", timeZone: "Asia/Kolkata" }).format(new Date());
   const logout = () => { signOut(); navigate("/login", { replace: true }); };
   return <div className={"fo-shell" + (sidebarCollapsed ? " fo-collapsed" : "")} style={{ "--ui-scale": uiScale } as CSSProperties}>
     <aside className="sh-sidebar">
@@ -77,12 +140,13 @@ export default function FrontOfficeLayout() {
     </aside>
     <div className="fo-main">
       <header className="sh-header">
-        <form className="sh-search" onSubmit={event => { event.preventDefault(); if (isFrontOfficeManager(user.role)) navigate("/dashboard/guests"); }}>
+        <form className="sh-search" onSubmit={event => { event.preventDefault(); if (canUseFrontOffice(user.role)) navigate("/dashboard/guests"); }}>
           <Search size={20}/><input aria-label="Search" placeholder="Search by booking ID, guest name, room number..."/><kbd>⌘K</kbd>
         </form>
         <div className="sh-header-actions">
-          <span className="sh-date"><CalendarDays size={19}/>{activeDate}<ChevronDown size={16}/></span>
-          <div className="fo-popover-wrap"><button className="sh-bell" aria-label="Notifications" aria-expanded={noticeOpen} onClick={() => setNoticeOpen(!noticeOpen)}><Bell size={22} strokeWidth={1.7}/><i/></button>{noticeOpen && <div className="fo-popover">No live notifications yet. This dashboard uses sample data.</div>}</div>
+          {canUseFrontOffice(user.role) && <HotelSwitcher canManage={isOwner(user.role)}/>}
+          <span className="sh-date" title="Today"><CalendarDays size={19}/>{activeDate}</span>
+          <div className="fo-popover-wrap"><button className="sh-bell" aria-label="Notifications" aria-expanded={noticeOpen} onClick={() => setNoticeOpen(!noticeOpen)}><Bell size={22} strokeWidth={1.7}/><i/></button>{noticeOpen && <div className="fo-popover">No new notifications.</div>}</div>
           <span className="sh-divider"/>
           <div className="fo-popover-wrap" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setProfileOpen(false); }} onKeyDown={event => { if (event.key === "Escape") setProfileOpen(false); }}>
             <button className="sh-profile" aria-expanded={profileOpen} onClick={() => setProfileOpen(!profileOpen)}>
@@ -90,7 +154,15 @@ export default function FrontOfficeLayout() {
               <span className="sh-profile-text"><strong>{name}</strong><small>{role}</small></span>
               <ChevronDown size={17}/>
             </button>
-            {profileOpen && <div className="fo-popover"><strong>{name}</strong><p>{user.email}</p><small>{role}</small><button className="fo-button" onClick={logout}><LogOut size={16}/>Logout</button></div>}
+            {profileOpen && <div className="fo-popover fo-profile-menu" role="menu">
+              <div className="fo-profile-head">
+                <span className="sh-avatar">{name.slice(0, 1).toUpperCase()}</span>
+                <div className="fo-profile-id"><strong>{name}</strong><p>{user.email}</p></div>
+              </div>
+              <span className="fo-role-badge">{role}</span>
+              <hr className="fo-profile-sep"/>
+              <button className="fo-profile-logout" role="menuitem" onClick={logout}><LogOut size={16}/>Logout</button>
+            </div>}
           </div>
         </div>
       </header>

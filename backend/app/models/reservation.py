@@ -6,6 +6,7 @@ from sqlalchemy import (
     ForeignKey,
     Index,
     Integer,
+    Boolean,
     String,
     Text,
     Time,
@@ -27,6 +28,11 @@ class Guest(Base):
     last_name: Mapped[str] = mapped_column(String(100))
     email: Mapped[str | None] = mapped_column(String(150), nullable=True)
     mobile: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    identity_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    identity_number: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    nationality: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    identity_document_path: Mapped[str | None] = mapped_column(String(500), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow
     )
@@ -61,6 +67,26 @@ class Reservation(Base):
     source: Mapped[str] = mapped_column(String(50), default="front_desk")
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     total_amount: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rooms_count: Mapped[int] = mapped_column(Integer, default=1)
+    rate_plan: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    nightly_rate: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    rate_override_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    taxes_amount: Mapped[int] = mapped_column(Integer, default=0)
+    discount_amount: Mapped[int] = mapped_column(Integer, default=0)
+    additional_charges: Mapped[int] = mapped_column(Integer, default=0)
+    special_requests: Mapped[str | None] = mapped_column(Text, nullable=True)
+    send_confirmation_voucher: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_group_booking: Mapped[bool] = mapped_column(Boolean, default=False)
+    group_name: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    booking_source: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    business_source: Mapped[str | None] = mapped_column(String(150), nullable=True)
+    market_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    deposit_due_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    release_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    group_size: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    quick_group_booking: Mapped[bool] = mapped_column(Boolean, default=False)
+    reminder_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    required_advance_amount: Mapped[int] = mapped_column(Integer, default=0)
     created_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.utcnow
@@ -70,6 +96,11 @@ class Reservation(Base):
     )
 
     guest = relationship("Guest", back_populates="reservations")
+    group_room_blocks = relationship("GroupRoomBlock", back_populates="reservation", cascade="all, delete-orphan")
+
+    @property
+    def room_blocks(self):
+        return self.group_room_blocks
 
     __table_args__ = (
         UniqueConstraint(
@@ -109,6 +140,7 @@ class CheckIn(Base):
         String(100), nullable=True
     )
     verification_status: Mapped[str] = mapped_column(String(30), default="pending")
+    folio_number: Mapped[str | None] = mapped_column(String(40), unique=True, index=True, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     checked_in_by_user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     checked_in_at: Mapped[datetime] = mapped_column(
@@ -175,3 +207,40 @@ class Payment(Base):
     __table_args__ = (
         Index("ix_payments_property_reservation", "property_id", "reservation_id"),
     )
+
+
+class RatePlan(Base):
+    __tablename__ = "rate_plans"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    property_id: Mapped[int] = mapped_column(ForeignKey("properties.id"), index=True)
+    name: Mapped[str] = mapped_column(String(100))
+    room_category: Mapped[str] = mapped_column(String(100), index=True)
+    nightly_rate: Mapped[int] = mapped_column(Integer)
+    adult_capacity: Mapped[int] = mapped_column(Integer, default=2)
+    child_capacity: Mapped[int] = mapped_column(Integer, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    __table_args__ = (UniqueConstraint("property_id", "name", "room_category", name="uq_rate_plans_property_name_room"),)
+
+
+class PaymentMethod(Base):
+    __tablename__ = "payment_methods"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    property_id: Mapped[int] = mapped_column(ForeignKey("properties.id"), index=True)
+    code: Mapped[str] = mapped_column(String(30))
+    label: Mapped[str] = mapped_column(String(100))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    __table_args__ = (UniqueConstraint("property_id", "code", name="uq_payment_methods_property_code"),)
+
+
+class GroupRoomBlock(Base):
+    __tablename__ = "group_room_blocks"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
+    property_id: Mapped[int] = mapped_column(ForeignKey("properties.id"), index=True)
+    reservation_id: Mapped[int] = mapped_column(ForeignKey("reservations.id"), index=True)
+    room_category: Mapped[str] = mapped_column(String(100))
+    rate_plan: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    rooms_count: Mapped[int] = mapped_column(Integer)
+    adults: Mapped[int] = mapped_column(Integer)
+    children: Mapped[int] = mapped_column(Integer, default=0)
+    nightly_rate: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    reservation = relationship("Reservation", back_populates="group_room_blocks")

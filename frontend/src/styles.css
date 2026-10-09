@@ -1486,7 +1486,7 @@ footer {
 .ch-user{display:flex;align-items:center;gap:16px;color:#536a94;font-size:14px}
 .ch-user button{display:flex;align-items:center;gap:8px;padding:8px 12px;border:1px solid #dce7fa;border-radius:8px;background:#fff;color:#385583;font:inherit;cursor:pointer}
 .ch-user button svg{width:16px;height:16px}
-.ch-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 16px;text-align:center}
+.ch-empty{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px 16px;text-align:center;background:radial-gradient(ellipse at center,#f4f8ffeb 0%,#eef4fdd1 45%,#eef4fd73 100%),url('/hero.jpg') center 30% / cover no-repeat}
 .ch-icon{display:grid;place-items:center;width:88px;height:88px;margin-bottom:20px;border-radius:24px;background:#e0ebfd;color:#1c5ce8}
 .ch-icon svg{width:44px;height:44px}
 .ch-empty h1{margin:0 0 8px;font-size:26px;color:#07195c}

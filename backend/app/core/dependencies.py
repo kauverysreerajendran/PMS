@@ -95,6 +95,14 @@ async def get_current_user(
 async def get_front_office_manager(
     current_user: User = Depends(get_current_user),
 ) -> User:
+    # Owners see and manage everything in the hotel they are currently viewing.
+    if current_user.role == "owner":
+        if current_user.property_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Create a hotel first",
+            )
+        return current_user
     if current_user.role != "front_office_manager":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
