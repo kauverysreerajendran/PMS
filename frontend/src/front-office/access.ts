@@ -19,5 +19,9 @@ export const frontOfficePages = [
   { slug: "room-assignment", title: "Room Assignment" },
   { slug: "guests", title: "Guests" },
   { slug: "room-status", title: "Room Status" },
+  { slug: "housekeeping", title: "Housekeeping" },
+  { slug: "menu", title: "Dining & Menu" },
   { slug: "staff", title: "Front Office Staff" },
+  { slug: "employees", title: "Employees" },
+  { slug: "settings", title: "Settings" },
 ] as const;

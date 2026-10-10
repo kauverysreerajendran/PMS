@@ -38,6 +38,12 @@ class Property(Base):
         nullable=True
     )
 
+    # Colour palette chosen in Settings (a key such as "navy-gold"); null uses the default.
+    theme: Mapped[str | None] = mapped_column(
+        String(40),
+        nullable=True
+    )
+
     # The owner who registered this hotel. One owner can own several hotels.
     owner_id: Mapped[int | None] = mapped_column(
         # use_alter: users -> properties -> users is a cycle, so add this FK after both tables exist.
@@ -209,4 +215,4 @@ class PasswordReset(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
         default=datetime.utcnow,
-    )
+    )

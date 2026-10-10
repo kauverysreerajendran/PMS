@@ -204,7 +204,7 @@ export default function CalendarPage() {
 
       <aside className="rc-side">
         <section className="rc-daycard">
-          <header style={{ backgroundImage: "linear-gradient(180deg,#0b1f5c26 0%,#0b1f5c8c 100%),url('/5.png')" }}>
+          <header style={{ backgroundImage: "linear-gradient(180deg,color-mix(in srgb,var(--th-navy) 15%,transparent) 0%,color-mix(in srgb,var(--th-navy) 55%,transparent) 100%),url('/5.png')" }}>
             <div><h2>{parse(focus).toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short", year: "numeric" })}</h2><p>{focusList.length} Booking{focusList.length === 1 ? "" : "s"}</p></div>
             <button type="button" className="rc-iconbtn is-light" aria-label="Show all guests for this day" title="Show all" onClick={() => setDayOpen(focus)}><MoreHorizontal size={18}/></button>
           </header>

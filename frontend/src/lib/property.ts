@@ -2,7 +2,7 @@ import { useEffect, useSyncExternalStore } from "react";
 import { frontOfficeRequest } from "../front-office/reservationsApi";
 import { type AuthUser, updateSessionUser, useSession } from "./auth";
 
-export type HotelProfile = { id: number; property_code: string; name: string; logo_url: string | null };
+export type HotelProfile = { id: number; property_code: string; name: string; logo_url: string | null; theme: string | null };
 
 // One shared copy of the signed-in user's hotel, so a logo change shows everywhere at once.
 let profile: HotelProfile | null = null;
@@ -11,7 +11,17 @@ const listeners = new Set<() => void>();
 const emit = () => listeners.forEach(listener => listener());
 const subscribe = (listener: () => void) => { listeners.add(listener); return () => { listeners.delete(listener); }; };
 
-function setProfile(next: HotelProfile | null) { profile = next; emit(); }
+function setProfile(next: HotelProfile | null) {
+  profile = next;
+  // Remembered so the sign-in page can show this hotel's name and logo before anyone logs in.
+  if (next) { try { localStorage.setItem(LAST_HOTEL_KEY, JSON.stringify({ name: next.name, logo_url: next.logo_url })); } catch { /* storage unavailable */ } }
+  emit();
+}
+
+const LAST_HOTEL_KEY = "stayhub.lastHotel";
+export function lastHotel(): { name: string; logo_url: string | null } | null {
+  try { return JSON.parse(localStorage.getItem(LAST_HOTEL_KEY) || "null"); } catch { return null; }
+}
 
 export function useHotelProfile(): HotelProfile | null {
   const user = useSession();
@@ -49,6 +59,10 @@ export async function createHotel(current: AuthUser, name: string, code: string)
     method: "POST",
     body: JSON.stringify({ name: name.trim(), property_code: code.trim() || null }),
   }));
+}
+
+export async function updateHotelTheme(theme: string) {
+  setProfile(await frontOfficeRequest<HotelProfile>("/properties/me/theme", { method: "PUT", body: JSON.stringify({ theme }) }));
 }
 
 export async function updateHotelLogo(logo: string | null) {

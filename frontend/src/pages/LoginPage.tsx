@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { saveSession } from '../lib/auth';
+import { lastHotel } from '../lib/property';
 
 import {
   BedDouble,
@@ -28,6 +29,7 @@ const features = [
 type ForgotStep = 'email' | 'reset' | 'success';
 
 export default function LoginPage() {
+  const [knownHotel] = useState(lastHotel);
   const navigate = useNavigate();
 
   const [show, setShow] = useState(false);
@@ -255,15 +257,15 @@ export default function LoginPage() {
         <div className="brand">
 
           <div className="brandIcon">
-            <Building2 />
+            {knownHotel?.logo_url ? <img src={knownHotel.logo_url} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', borderRadius: 8 }} /> : <Building2 />}
           </div>
 
           <div>
             <strong>
-              Stay<span>Hub</span>
+              {knownHotel?.name || 'Hotel Management'}
             </strong>
 
-            <small>HOTEL MANAGEMENT</small>
+            <small>{knownHotel ? 'HOTEL MANAGEMENT' : 'SYSTEM'}</small>
           </div>
 
         </div>
@@ -397,7 +399,7 @@ export default function LoginPage() {
               <div
                 style={{
                   color: '#dc2626',
-                  fontSize: '12px',
+                  fontSize: '14px',
                   fontWeight: 600,
                   marginTop: '8px'
                 }}
@@ -461,7 +463,7 @@ export default function LoginPage() {
           </button>
 
           <footer>
-            © 2026 StayHub. All rights reserved.
+            © {new Date().getFullYear()} Hotel Management System. All rights reserved.
           </footer>
 
         </div>
@@ -503,7 +505,7 @@ export default function LoginPage() {
 
                 <p className="forgotDescription">
                   Enter your registered email address
-                  to reset your StayHub password.
+                  to reset your password.
                 </p>
 
                 <form
@@ -575,7 +577,7 @@ export default function LoginPage() {
 
                 <p className="forgotDescription">
                   Create a secure new password for
-                  your StayHub account.
+                  your account.
                 </p>
 
                 <form
@@ -688,4 +690,4 @@ export default function LoginPage() {
 
     </main>
   );
-}
+}

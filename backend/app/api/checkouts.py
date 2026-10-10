@@ -7,7 +7,9 @@ from sqlalchemy.orm import selectinload
 
 from app.core.dependencies import get_front_office_manager
 from app.db.database import get_db
+from app.api.housekeeping import open_cleaning_task
 from app.models.reservation import CheckIn, CheckOut, Payment, Reservation
+from app.models.room import Room
 from app.models.user import User
 from app.schemas.checkout import (
     CheckOutCreate,
@@ -116,6 +118,10 @@ async def create_checkout(
     )
     reservation.status = "checked_out"
     db.add(checkout)
+    # The room goes to housekeeping: dirty until a cleaner finishes and releases it.
+    room = await db.scalar(select(Room).where(Room.property_id == current_user.property_id, Room.room_number == checkout.room_number, Room.is_active.is_(True)))
+    if room is not None:
+        await open_cleaning_task(db, room, reservation.id, current_user.id, notes=f"Departure clean after {reservation.reservation_code}")
     await db.commit()
     return await get_checkout_or_404(checkout.id, current_user.property_id, db)
 

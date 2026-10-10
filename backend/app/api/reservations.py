@@ -332,6 +332,9 @@ async def update_reservation(
     changes = data.model_dump(exclude_unset=True)
     guest_changes = changes.pop("guest", None)
     room_blocks = changes.pop("room_blocks", None)
+    # The edit form resends every field; keep only real changes so an unchanged
+    # rate does not reset per-night folio rates.
+    changes = {field: value for field, value in changes.items() if getattr(reservation, field, object()) != value}
     new_status = changes.get("status", reservation.status)
     if new_status not in RESERVATION_STATUSES:
         raise HTTPException(status_code=422, detail="Invalid reservation status")

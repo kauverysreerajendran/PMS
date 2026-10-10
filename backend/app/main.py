@@ -2,6 +2,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
 from app.api.auth import router as auth_router
@@ -11,8 +12,11 @@ from app.api.reservations import router as reservations_router
 from app.api.guests import router as guests_router
 from app.api.billing import router as billing_router
 from app.api.properties import router as properties_router
-from app.api.rooms import router as rooms_router
+from app.api.rooms import ROOM_IMAGE_FOLDER, router as rooms_router
 from app.api.folio import router as folio_router
+from app.api.housekeeping import router as housekeeping_router
+from app.api.menu import public_router as public_menu_router, router as menu_router
+from app.api.employees import router as employees_router
 from app.db.database import Base, engine
 
 
@@ -80,6 +84,22 @@ async def lifespan(app: FastAPI):
             "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS reminder_at TIMESTAMP",
             "ALTER TABLE reservations ADD COLUMN IF NOT EXISTS required_advance_amount INTEGER NOT NULL DEFAULT 0",
             "ALTER TABLE checkins ADD COLUMN IF NOT EXISTS folio_number VARCHAR(40)",
+            "ALTER TABLE properties ADD COLUMN IF NOT EXISTS theme VARCHAR(40)",
+            "ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS meal_periods TEXT",
+            "ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS is_complimentary BOOLEAN NOT NULL DEFAULT FALSE",
+            "ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS components TEXT",
+            "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS room_type VARCHAR(50)",
+            "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS max_adults INTEGER",
+            "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS max_children INTEGER",
+            "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS image_url VARCHAR(300)",
+            "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS display_name VARCHAR(120)",
+            "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS base_rate INTEGER",
+            "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS bed_type VARCHAR(60)",
+            "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS size_sqft INTEGER",
+            "ALTER TABLE rooms ADD COLUMN IF NOT EXISTS amenities TEXT",
+            # Existing rooms only had a total capacity: treat it as adults until edited.
+            "UPDATE rooms SET max_adults = capacity WHERE max_adults IS NULL",
+            "UPDATE rooms SET max_children = 0 WHERE max_children IS NULL",
         ):
             await conn.execute(text(statement))
 
@@ -114,7 +134,13 @@ app.include_router(guests_router)
 app.include_router(billing_router)
 app.include_router(properties_router)
 app.include_router(rooms_router)
+# Room photos are public hotel imagery (identity documents stay private and are not mounted).
+app.mount("/media/rooms", StaticFiles(directory=ROOM_IMAGE_FOLDER), name="room-images")
 app.include_router(folio_router)
+app.include_router(housekeeping_router)
+app.include_router(menu_router)
+app.include_router(public_menu_router)
+app.include_router(employees_router)
 
 
 @app.get("/")

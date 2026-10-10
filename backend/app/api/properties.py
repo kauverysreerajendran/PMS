@@ -30,6 +30,11 @@ class LogoUpdate(BaseModel):
     logo: str | None = Field(default=None, max_length=700_000)
 
 
+class ThemeUpdate(BaseModel):
+    # Palette key from the Settings page; the frontend owns the palette definitions.
+    theme: str = Field(min_length=1, max_length=40, pattern=r"^[a-z0-9-]+$")
+
+
 # Roles that manage a hotel day to day (same provisions inside the hotel they are viewing).
 MANAGER_ROLES = {"owner", "front_office_manager"}
 STAFF_ROLES = {"front_office_manager", "front_desk_agent"}
@@ -48,6 +53,7 @@ def _property_out(property_obj: Property) -> dict:
         "property_code": property_obj.property_code,
         "name": property_obj.name,
         "logo_url": property_obj.logo_url,
+        "theme": property_obj.theme,
     }
 
 
@@ -162,6 +168,20 @@ async def get_my_property(
     db: AsyncSession = Depends(get_db),
 ):
     return _property_out(await _current_property(current_user, db))
+
+
+@router.put("/me/theme")
+async def update_theme(
+    data: ThemeUpdate,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    if current_user.role not in MANAGER_ROLES:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Only the owner or front office manager can change the hotel colours")
+    property_obj = await _current_property(current_user, db)
+    property_obj.theme = data.theme
+    await db.commit()
+    return _property_out(property_obj)
 
 
 @router.put("/me/logo")

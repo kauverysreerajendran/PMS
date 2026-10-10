@@ -1,7 +1,12 @@
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowDown, ArrowUp, BedDouble, BriefcaseBusiness, Building2, CalendarCheck, CalendarDays, ChartColumnBig, ChevronRight, ClipboardList, CreditCard, DoorOpen, FileText, LoaderCircle, LogIn, PencilLine, Plus, RefreshCw, TrendingDown, TrendingUp, Users, XCircle } from "lucide-react";
+import RoomCheckModal from "./RoomCheckModal";
+import HousekeepingTicker from "./HousekeepingTicker";
+import GuestOrdersPanel from "./GuestOrdersPanel";
+import { MenuQrCard, QrModal } from "./MenuPage";
+import { ArrowDown, ArrowUp, BedDouble, BriefcaseBusiness, Building2, CalendarCheck, CalendarDays, ChartColumnBig, ChevronRight, ClipboardList, CreditCard, DoorOpen, FileText, QrCode, SearchCheck, UtensilsCrossed, LoaderCircle, LogIn, PencilLine, Plus, RefreshCw, TrendingDown, TrendingUp, Users, XCircle } from "lucide-react";
 import { useSession } from "../lib/auth";
+import { useHotelProfile } from "../lib/property";
 import { canUseFrontOffice } from "./access";
 import { frontOfficeRequest } from "./reservationsApi";
 import "./dashboard.css";
@@ -26,8 +31,9 @@ const longDate = (value: string) => new Date(value + "T00:00:00").toLocaleDateSt
 const thumbCrops = ["-232px -52px", "-280px -48px", "-196px -60px", "-318px -58px"];
 const shortDate = (value: string) => new Date(value + "T00:00:00").toLocaleDateString("en-IN", { day: "numeric", month: "short" });
 const periodLabel: Record<Period, string> = { week: "This Week", month: "This Month" };
-const occupancyColors = { occupied: "#2a6df4", available: "#9dc0f8", cleaning: "#f7c948", maintenance: "#b5c2d9" };
-const sourceColors = ["#2a6df4", "#22b07d", "#7c5cf0", "#f5a524", "#9dc0f8"];
+// Theme variables, so charts follow the palette chosen in Settings. SVG takes them through style, not attributes.
+const occupancyColors = { occupied: "var(--th-steel-2)", available: "var(--th-steel-tint)", cleaning: "#f7c948", maintenance: "var(--th-stone)" };
+const sourceColors = ["var(--th-steel-2)", "#22b07d", "#7c5cf0", "#f5a524", "var(--th-steel-tint)"];
 const statusTone: Record<string, string> = { checked_in: "in", checked_out: "done", confirmed: "booked", tentative: "pending", waiting: "pending", cancelled: "off", no_show: "off" };
 
 // What each activity kind looks like in the timeline.
@@ -44,6 +50,9 @@ const activityStyles: Record<string, { tone: string; icon: ReactNode; title: (it
 export default function HotelDashboard() {
   const user = useSession();
   const navigate = useNavigate();
+  const hotel = useHotelProfile();
+  const [roomCheckOpen, setRoomCheckOpen] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
   const bookingsRef = useRef<HTMLElement>(null);
   const [period, setPeriod] = useState<Period>("month");
   const [data, setData] = useState<Overview | null>(null);
@@ -79,10 +88,11 @@ export default function HotelDashboard() {
   </select>;
 
   return <div className="sd">
+    {roomCheckOpen && <RoomCheckModal onClose={() => setRoomCheckOpen(false)}/>}
     <section className="sd-hero">
       <div className="sd-hero-copy">
         <p className="sd-eyebrow">WELCOME BACK{firstName && `, ${firstName.toUpperCase()}`}</p>
-        <h1>Elevate Every Stay<br/>with <span>StayHub</span></h1>
+        <h1>Elevate Every Stay<br/>at <span>{hotel?.name || "your hotel"}</span></h1>
         <p className="sd-tagline">Effortless operations. Happier guests. A more profitable hotel.</p>
         <div className="sd-hero-actions">
           {canOperate
@@ -91,6 +101,8 @@ export default function HotelDashboard() {
           {canOperate
             ? <button className="sd-btn-light" onClick={() => navigate("/dashboard/calendar")}><CalendarDays size={18}/>View Calendar</button>
             : <button className="sd-btn-light" onClick={() => bookingsRef.current?.scrollIntoView({ behavior: "smooth" })}><FileText size={18}/>View Bookings</button>}
+          {canOperate && <button className="sd-btn-light" onClick={() => navigate("/dashboard/room-status")}><BedDouble size={18}/>View Rooms</button>}
+          {canOperate && <button className="sd-btn-light sd-btn-check" onClick={() => setRoomCheckOpen(true)}><SearchCheck size={18}/>Room Check</button>}
         </div>
       </div>
       <aside className="sd-focus" aria-label="Today's focus">
@@ -101,6 +113,19 @@ export default function HotelDashboard() {
       </aside>
       <div className="sd-dots" aria-hidden="true"><i className="on"/><i/><i/><i/></div>
     </section>
+
+    {canOperate && <section className="sd-ops">
+      <HousekeepingTicker variant="card"/>
+      {hotel && <div className="sd-dining-qr">
+        <MenuQrCard code={hotel.property_code} hotelName={hotel.name} onExpand={() => setQrOpen(true)}/>
+        <div className="sd-dining-actions">
+          <button type="button" className="sd-btn-primary" onClick={() => navigate("/dashboard/menu")}><UtensilsCrossed size={17}/>Place order</button>
+          <button type="button" className="sd-btn-light" onClick={() => setQrOpen(true)}><QrCode size={17}/>Print QR</button>
+        </div>
+      </div>}
+      <GuestOrdersPanel compact/>
+    </section>}
+    {qrOpen && hotel && <QrModal code={hotel.property_code} hotelName={hotel.name} onClose={() => setQrOpen(false)}/>}
 
     {error && <p className="sd-error" role="alert">{error}</p>}
 
@@ -201,7 +226,7 @@ function formatTime(iso: string) {
   return moment.toDateString() === new Date().toDateString() ? time : `${moment.toLocaleDateString("en-IN", { day: "2-digit", month: "short" })}, ${time}`;
 }
 
-const sparkColors: Record<string, string> = { blue: "#2a6df4", green: "#22b07d", purple: "#7c5cf0", amber: "#f5a524" };
+const sparkColors: Record<string, string> = { blue: "var(--th-steel-2)", green: "#22b07d", purple: "#7c5cf0", amber: "#f5a524" };
 function Sparkline({ values, tint }: { values: number[]; tint: string }) {
   const width = 120, height = 46;
   const points = values.length > 1 ? values : [0, 0];
@@ -212,9 +237,9 @@ function Sparkline({ values, tint }: { values: number[]; tint: string }) {
   const line = coords.map(([x, y], index) => `${index ? "L" : "M"}${x.toFixed(1)} ${(max === min ? height - 6 : y).toFixed(1)}`).join(" ");
   const color = sparkColors[tint];
   return <svg className="sd-spark" viewBox={`0 0 ${width} ${height}`} preserveAspectRatio="none" aria-hidden="true">
-    <defs><linearGradient id={`sd-spark-${tint}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor={color} stopOpacity=".28"/><stop offset="1" stopColor={color} stopOpacity="0"/></linearGradient></defs>
+    <defs><linearGradient id={`sd-spark-${tint}`} x1="0" y1="0" x2="0" y2="1"><stop offset="0" style={{ stopColor: color, stopOpacity: .28 }}/><stop offset="1" style={{ stopColor: color, stopOpacity: 0 }}/></linearGradient></defs>
     <path d={`${line} L${width} ${height} L0 ${height} Z`} fill={`url(#sd-spark-${tint})`}/>
-    <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke"/>
+    <path d={line} fill="none" style={{ stroke: color }} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke"/>
   </svg>;
 }
 
@@ -231,14 +256,14 @@ function Empty({ loading, text }: { loading: boolean; text: string }) {
 }
 
 function Donut({ items, total, center, caption }: { items: { value: number; color: string }[]; total: number; center: string; caption: string }) {
-  const radius = 72, circumference = 2 * Math.PI * radius;
+  const radius = 78, circumference = 2 * Math.PI * radius;
   let offset = 0;
   return <div className="sd-donut">
     <svg viewBox="0 0 200 200" aria-hidden="true">
-      <circle cx="100" cy="100" r={radius} fill="none" stroke="#e9eef6" strokeWidth="26"/>
+      <circle cx="100" cy="100" r={radius} fill="none" style={{ stroke: "var(--th-ivory)" }} strokeWidth="18"/>
       <g transform="rotate(-90 100 100)">{items.map((item, index) => {
         const length = total ? (item.value / total) * circumference : 0;
-        const segment = <circle key={index} cx="100" cy="100" r={radius} fill="none" stroke={item.color} strokeWidth="26" strokeDasharray={`${length} ${circumference - length}`} strokeDashoffset={-offset}/>;
+        const segment = <circle key={index} cx="100" cy="100" r={radius} fill="none" style={{ stroke: item.color }} strokeWidth="18" strokeDasharray={`${length} ${circumference - length}`} strokeDashoffset={-offset}/>;
         offset += length;
         return segment;
       })}</g>
@@ -262,8 +287,8 @@ function RevenueChart({ days }: { days: { date: string; amount: number }[] }) {
   const activeX = left + active * step + step / 2;
   const tipX = Math.min(Math.max(activeX, left + 48), left + width - 48);
   const compact = (value: number) => value >= 1000 ? `${Math.round(value / 1000)}K` : String(Math.round(value));
-  return <svg className="sd-revenue-chart" viewBox="0 0 514 164" onMouseLeave={() => setActive(peak)} role="img" aria-label="Daily payments received">
-    <defs><linearGradient id="sd-bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stopColor="#2a6df4"/><stop offset="1" stopColor="#a9c8ff"/></linearGradient></defs>
+  return <svg className="sd-revenue-chart" viewBox="0 0 514 176" onMouseLeave={() => setActive(peak)} role="img" aria-label="Daily payments received">
+    <defs><linearGradient id="sd-bar" x1="0" y1="0" x2="0" y2="1"><stop offset="0" style={{ stopColor: "var(--th-steel-2)" }}/><stop offset="1" style={{ stopColor: "var(--th-steel-pale)" }}/></linearGradient></defs>
     {ticks.map(tick => <g key={tick}>
       <line x1={left} x2={left + width} y1={y(tick)} y2={y(tick)} className="sd-grid"/>
       <text x={left - 8} y={y(tick) + 3} textAnchor="end" className="sd-axis">{compact(tick)}</text>
@@ -272,8 +297,8 @@ function RevenueChart({ days }: { days: { date: string; amount: number }[] }) {
       <rect x={left + index * step} y={top} width={step} height={height} fill="transparent"/>
       <rect x={left + index * step + (step - barWidth) / 2} y={y(day.amount)} width={barWidth} height={top + height - y(day.amount)} rx="2" fill="url(#sd-bar)" opacity={index === active ? 1 : .88}/>
     </g>)}
-    {days.map((day, index) => index % labelEvery === 0 && <text key={day.date} x={left + index * step + step / 2} y={top + height + 18} textAnchor="middle" className="sd-axis">{shortDate(day.date)}</text>)}
-    <circle cx={activeX} cy={y(current.amount)} r="4" fill="#2a6df4" stroke="#fff" strokeWidth="2"/>
+    {days.map((day, index) => index % labelEvery === 0 && <text key={day.date} x={left + index * step + step / 2} y={top + height + 30} textAnchor="middle" className="sd-axis">{shortDate(day.date)}</text>)}
+    <circle cx={activeX} cy={y(current.amount)} r="4" style={{ fill: "var(--th-steel-2)" }} stroke="#fff" strokeWidth="2"/>
     <g className="sd-tip" transform={`translate(${tipX - 48} ${Math.max(y(current.amount) - 40, -6)})`}>
       <rect width="96" height="32" rx="6"/>
       <text x="48" y="13" textAnchor="middle" className="strong">{money(current.amount)}</text>

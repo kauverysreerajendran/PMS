@@ -9,6 +9,9 @@ const API_BASE_URL = (
   import.meta.env.VITE_API_URL || "http://127.0.0.1:8000"
 ).replace(/\/$/, "");
 
+/** Absolute URL for a file the API serves, such as an uploaded room photo. */
+export const apiAssetUrl = (path: string) => (/^https?:/.test(path) ? path : `${API_BASE_URL}${path}`);
+
 export type Reservation = {
   id: number;
   reservation_code: string;
@@ -172,10 +175,19 @@ export function getReservations(search = "", status = "", arrivalDate = "") {
   );
 }
 
+// Empty date-time inputs come through as "", which the API rejects; send them as unset instead.
+function withoutBlankDateTimes<T extends Partial<ReservationInput>>(data: T): T {
+  const cleaned = { ...data };
+  for (const key of ["deposit_due_at", "release_at", "reminder_at"] as const) {
+    if (cleaned[key] === "") delete cleaned[key];
+  }
+  return cleaned;
+}
+
 export function createReservation(data: ReservationInput) {
   return frontOfficeRequest<Reservation>("/reservations", {
     method: "POST",
-    body: JSON.stringify(data),
+    body: JSON.stringify(withoutBlankDateTimes(data)),
   });
 }
 export function getReservation(id: number) {
@@ -228,7 +240,7 @@ export function assignReservationRoom(
 export function updateReservation(id: number, changes: Partial<ReservationInput>) {
   return frontOfficeRequest<Reservation>(`/reservations/${id}`, {
     method: "PATCH",
-    body: JSON.stringify(changes),
+    body: JSON.stringify(withoutBlankDateTimes(changes)),
   });
 }
 

@@ -16,6 +16,11 @@ import StaffPage from "./front-office/StaffPage";
 import CalendarPage from "./front-office/CalendarPage";
 import ReservationFolioPage from "./front-office/ReservationFolioPage";
 import BillingPaymentsPage from "./front-office/BillingPaymentsPage";
+import SettingsPage from "./front-office/SettingsPage";
+import HousekeepingPage from "./front-office/HousekeepingPage";
+import MenuPage from "./front-office/MenuPage";
+import EmployeesPage from "./front-office/EmployeesPage";
+import PublicMenuPage from "./pages/PublicMenuPage";
 
 const pageElements: Record<string, ReactElement> = {
   "calendar": <CalendarPage/>,
@@ -27,6 +32,10 @@ const pageElements: Record<string, ReactElement> = {
   "guests": <GuestsPage/>,
   "room-status": <RoomStatusPage/>,
   "staff": <StaffPage/>,
+  "settings": <SettingsPage/>,
+  "housekeeping": <HousekeepingPage/>,
+  "menu": <MenuPage/>,
+  "employees": <EmployeesPage/>,
 };
 
 function DashboardRoute() {
@@ -53,6 +62,7 @@ function DashboardIndex() {
 export default function App() {
   return <Routes>
     <Route path="/login" element={<LoginPage/>}/>
+    <Route path="/m/:code" element={<PublicMenuPage/>}/>
     <Route path="/hotels/new" element={<AddHotelRoute/>}/>
     <Route path="/dashboard" element={<DashboardRoute/>}>
       <Route index element={<DashboardIndex/>}/>

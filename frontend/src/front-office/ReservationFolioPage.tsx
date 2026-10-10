@@ -72,6 +72,8 @@ export default function ReservationFolioPage() {
     : ["confirmed", "tentative", "waiting"].includes(r.status)
       ? <button type="button" className="fo-button" onClick={() => navigate("/dashboard/check-in")}><LogIn size={16}/>Check In</button>
       : null;
+  const canEditReservation = ["confirmed", "tentative", "waiting"].includes(r.status);
+  const editReservation = () => navigate(`/dashboard/reservations?edit=${r.id}&returnTo=${encodeURIComponent(`/dashboard/reservations/${r.id}`)}`);
 
   return <section className="fo-folio">
     {/* Header strip: guest + stay at a glance */}
@@ -89,17 +91,18 @@ export default function ReservationFolioPage() {
         </div>
         <div className="fo-folio-actions">
           {primary}
-        <div className="fo-popover-wrap" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setMenuOpen(false); }}>
-          <button type="button" className="fo-outline-button" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>More Options<ChevronDown size={16}/></button>
-          {menuOpen && <div className="fo-popover fo-folio-menu" role="menu">
-            <MenuItem icon={<CreditCard size={16}/>} text="Add Payment" disabled={!editable} onClick={() => { setMenuOpen(false); setPanel("payment"); }}/>
-            <MenuItem icon={<CalendarClock size={16}/>} text="Amend Stay" disabled={!editable} onClick={() => { setMenuOpen(false); setPanel("amend"); }}/>
-            <MenuItem icon={<MoveRight size={16}/>} text="Room Move" disabled={!editable} onClick={() => { setMenuOpen(false); setPanel("move"); }}/>
-            <MenuItem icon={<Pencil size={16}/>} text="Edit Reservation" onClick={() => { setMenuOpen(false); navigate("/dashboard/reservations"); }}/>
-            <MenuItem icon={<Printer size={16}/>} text="Print Folio" onClick={() => { setMenuOpen(false); setInvoiceOpen(true); }}/>
-          </div>}
+          {canEditReservation && <button type="button" className="fo-outline-button" onClick={editReservation}><Pencil size={16}/>Edit Reservation</button>}
         </div>
-        </div>
+      </div>
+      <div className="fo-popover-wrap fo-folio-more" onBlur={event => { if (!event.currentTarget.contains(event.relatedTarget)) setMenuOpen(false); }}>
+        <button type="button" className="fo-outline-button" aria-haspopup="menu" aria-expanded={menuOpen} onClick={() => setMenuOpen(!menuOpen)}>More Options<ChevronDown size={16}/></button>
+        {menuOpen && <div className="fo-popover fo-folio-menu" role="menu">
+          <MenuItem icon={<CreditCard size={16}/>} text="Add Payment" disabled={!editable} onClick={() => { setMenuOpen(false); setPanel("payment"); }}/>
+          <MenuItem icon={<CalendarClock size={16}/>} text="Amend Stay" disabled={!editable} onClick={() => { setMenuOpen(false); setPanel("amend"); }}/>
+          <MenuItem icon={<MoveRight size={16}/>} text="Room Move" disabled={!editable} onClick={() => { setMenuOpen(false); setPanel("move"); }}/>
+          <MenuItem icon={<Pencil size={16}/>} text="Edit Reservation" disabled={!canEditReservation} onClick={() => { setMenuOpen(false); editReservation(); }}/>
+          <MenuItem icon={<Printer size={16}/>} text="Print Folio" onClick={() => { setMenuOpen(false); setInvoiceOpen(true); }}/>
+        </div>}
       </div>
       <div className="fo-folio-hero-cards">
         <HeroCard icon={<LogIn size={22}/>} label="Arrival" value={long(r.check_in_date)} sub={weekday(r.check_in_date)}/>
@@ -201,7 +204,7 @@ function PaidCard({ paid, total }: { paid: number; total: number }) {
   const pct = total > 0 ? Math.min(100, Math.round(paid / total * 100)) : 0;
   const r = 15, c = 2 * Math.PI * r;
   return <div className="fo-hero-card is-ring">
-    <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r={r} fill="none" stroke="#e3ebf8" strokeWidth="5"/><circle cx="20" cy="20" r={r} fill="none" stroke="#2a6df4" strokeWidth="5" strokeLinecap="round" strokeDasharray={`${c * pct / 100} ${c}`} transform="rotate(-90 20 20)"/></svg>
+    <svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r={r} fill="none" style={{ stroke: "var(--th-ivory-tint)" }} strokeWidth="5"/><circle cx="20" cy="20" r={r} fill="none" style={{ stroke: "var(--th-steel-2)" }} strokeWidth="5" strokeLinecap="round" strokeDasharray={`${c * pct / 100} ${c}`} transform="rotate(-90 20 20)"/></svg>
     <div><small>Paid</small><strong>{pct}%</strong><em>Balance {money(Math.max(total - paid, 0))}</em></div>
   </div>;
 }

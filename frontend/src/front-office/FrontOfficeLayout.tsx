@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { Navigate, NavLink, Outlet, useNavigate } from "react-router-dom";
-import { House, CalendarDays, LogIn, LogOut, BedDouble, Users, Sparkles, UserCog, Bell, Search, ChevronDown, ChevronRight, CreditCard, Headphones, PanelLeftClose, PanelLeftOpen, BriefcaseBusiness, ChartNoAxesColumn, MessageSquareText, Settings, Building2, Check, Plus, ImagePlus, ClipboardList, type LucideIcon } from "lucide-react";
+import { Link, Navigate, NavLink, Outlet, useNavigate } from "react-router-dom";
+import { House, CalendarDays, LogIn, LogOut, BedDouble, Users, Sparkles, UserCog, Bell, IdCard, Pencil, SprayCan, UtensilsCrossed, Search, ChevronDown, ChevronRight, CreditCard, Headphones, PanelLeftClose, PanelLeftOpen, BriefcaseBusiness, ChartNoAxesColumn, MessageSquareText, Settings, Building2, Check, Plus, ImagePlus, ClipboardList, type LucideIcon } from "lucide-react";
 import { signOut, useSession } from "../lib/auth";
 import { listMyHotels, readLogoFile, switchHotel, updateHotelLogo, useHotelProfile, type OwnedHotel } from "../lib/property";
 import { canUseFrontOffice, frontOfficePages, isOwner } from "./access";
+import { useHotelPalette } from "../lib/theme";
 import "./frontOffice.css";
 import "./shell.css";
 
-const icons: Record<string, LucideIcon> = { "": House, calendar: CalendarDays, reservations: ClipboardList, "check-in": LogIn, "check-out": LogOut, billing: CreditCard, "room-assignment": BedDouble, guests: Users, "room-status": Sparkles, staff: UserCog };
+const icons: Record<string, LucideIcon> = { "": House, calendar: CalendarDays, reservations: ClipboardList, "check-in": LogIn, "check-out": LogOut, billing: CreditCard, "room-assignment": BedDouble, guests: Users, "room-status": Sparkles, staff: UserCog, settings: Settings, housekeeping: SprayCan, menu: UtensilsCrossed, employees: IdCard };
 type NavItem = { title: string; icon: LucideIcon; to?: string; dot?: boolean };
 const frontOfficeNav: NavItem[] = frontOfficePages.map(page => ({ title: page.title, icon: icons[page.slug] || House, to: "/dashboard" + (page.slug ? "/" + page.slug : "") }));
 // Modules for other roles are not built yet, so only Dashboard routes anywhere.
@@ -109,6 +110,31 @@ function HotelSwitcher({ canManage }: { canManage: boolean }) {
   </div>;
 }
 
+// Sidebar logo: the hotel's own logo once uploaded, with a small edit button for the owner or front office manager.
+function SidebarLogo({ canEdit }: { canEdit: boolean }) {
+  const hotel = useHotelProfile();
+  const input = useRef<HTMLInputElement>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const upload = async (file?: File) => {
+    if (!file) return;
+    setBusy(true); setError("");
+    try { await updateHotelLogo(await readLogoFile(file)); }
+    catch (err) { setError(err instanceof Error ? err.message : "Unable to upload the logo."); }
+    finally { setBusy(false); if (input.current) input.current.value = ""; }
+  };
+  return <div className="sh-logo">
+    <Link to="/dashboard" className="sh-logo-home" aria-label="Go to dashboard">{hotel?.logo_url ? <img className="sh-logo-img" src={hotel.logo_url} alt={`${hotel.name} logo`}/> : <StayHubMark/>}</Link>
+    {canEdit && <>
+      <button type="button" className="sh-logo-edit" disabled={busy} title={error || (hotel?.logo_url ? "Change logo" : "Upload logo")} aria-label={hotel?.logo_url ? "Change hotel logo" : "Upload hotel logo"} onClick={event => { event.preventDefault(); input.current?.click(); }}>
+        <Pencil size={8} strokeWidth={2.4}/>Edit
+      </button>
+      <input ref={input} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif" hidden onChange={event => void upload(event.target.files?.[0])}/>
+    </>}
+    {error && <div className="sh-logo-error" role="alert">{error}</div>}
+  </div>;
+}
+
 export default function FrontOfficeLayout() {
   const user = useSession();
   const navigate = useNavigate();
@@ -117,6 +143,10 @@ export default function FrontOfficeLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(true);
   const uiScale = useUiScale();
   const activeDate = useToday();
+  const hotel = useHotelProfile();
+  // Follow the palette saved for this hotel in Settings (null = default); skip until the profile has loaded.
+  useHotelPalette(hotel ? hotel.theme : undefined);
+  useEffect(() => { document.title = hotel ? `${hotel.name} · Hotel Management` : "Hotel Management"; }, [hotel]);
   // The session can be cleared while this screen is open (expired login, sign-out in another tab).
   if (!user) return <Navigate to="/login" replace/>;
   const name = user.name || user.username;
@@ -126,7 +156,7 @@ export default function FrontOfficeLayout() {
   return <div className={"fo-shell" + (sidebarCollapsed ? " fo-collapsed" : "")} style={{ "--ui-scale": uiScale } as CSSProperties}>
     <aside className="sh-sidebar">
       <div className="sh-brand-row">
-        <a className="sh-brand" href="/dashboard"><StayHubMark/><span><strong>StayHub</strong><small>Hotel Management</small></span></a>
+        <div className="sh-brand"><SidebarLogo canEdit={user.role === "owner" || user.role === "front_office_manager"}/><a href="/dashboard" className="sh-brand-text"><span><strong>{hotel?.name || "Your hotel"}</strong><small>{hotel?.property_code || "Hotel Management"}</small></span></a></div>
         <button type="button" className="sh-collapse" aria-label={sidebarCollapsed ? "Expand menu" : "Collapse menu"} aria-expanded={!sidebarCollapsed} onClick={() => setSidebarCollapsed(collapsed => !collapsed)}>{sidebarCollapsed ? <PanelLeftOpen size={17}/> : <PanelLeftClose size={17}/>}</button>
       </div>
       <nav aria-label="Main navigation">{nav.map(({ title, icon: Icon, to, dot }) => {
